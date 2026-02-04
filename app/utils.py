@@ -1,5 +1,10 @@
 import pdfplumber as pdf
 from fastapi import File
+from openai import AsyncOpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 def pdf_to_text(file):
 
@@ -10,3 +15,14 @@ def pdf_to_text(file):
                 
     return text
 
+async def text_to_vector(text):
+    model_name = "text-embedding-3-small"
+    client=AsyncOpenAI()
+    
+    response=await client.embeddings.create(
+        input=text,
+        model=model_name
+    )
+    vectors=response.data[0].embedding
+    
+    return vectors

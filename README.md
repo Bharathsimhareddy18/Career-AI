@@ -61,7 +61,6 @@ Career AI is an intelligent backend system designed to analyze resumes, compare 
     Create a `.env` file and add your API keys:
     ```env
     OPENAI_API_KEY=your_key_here
-    GEMINI_API_KEY=your_key_here
     ```
 
 5.  **Run the Server**

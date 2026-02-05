@@ -4,7 +4,7 @@
 
 Career AI is an intelligent backend system designed to analyze resumes, compare them against job descriptions (JDs), and generate personalized career roadmaps. It uses Large Language Models (LLMs) and Vector Embeddings to provide mathematically precise relevance scores and actionable insights.
 
-![Career AI Output](demo_output.jpg)
+![Career AI Output](https://github.com/user-attachments/assets/383ede50-4309-46d2-9c60-ce4ae2a7aac7)
 *Current Output: Resume vs. JD Relevance Score using Cosine Similarity*
 
 ---

@@ -2,6 +2,8 @@ import pdfplumber as pdf
 from fastapi import File
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
+from app.output_models import jobData
+import json
 
 load_dotenv()
 
@@ -28,22 +30,24 @@ async def text_to_vector(text):
     return vectors
 
 
-async def LLM_distilliation_for_resume(text):
+async def LLM_distilliation_for_resume(text : str , doc_type: str = "Resume")->jobData:
     result=""
      
-    SYSTEM_PROMPT = """
-You are an expert Technical Recruiter. Your goal is to extract a precise list of hard technical skills and the target job role.
-
-Rules:
-1. Extract skills from ANYWHERE in the text (Skills section, Projects, Experience).
-2. Normalize skills (e.g., "React.js" -> "React", "AWS EC2" -> "AWS").
-3. IGNORE soft skills (Leadership, Communication).
-4. IGNORE general terms (Coding, Programming).
-5. Output format: "Role: <Predicted Role> | Skills: <Skill1>, <Skill2>, ..."
-
-Example Output:
-Role: Backend Engineer | Skills: Python, FastAPI, Docker, PostgreSQL, AWS, Redis
-""" 
+    SYSTEM_PROMPT = f"""
+    You are an expert Technical Recruiter. Analyze this {doc_type}.
+    Extract the 'role' and a list of 'skills'.
+    
+    CRITICAL RULES:
+    1. If the text contains ANY keywords like 'Experience', 'Education', 'Skills', or job titles, assume it IS a valid document and set "is_valid_document": true.
+    2. Only set "false" if the text is completely gibberish or unrelated (like a cooking recipe).
+    3. Normalize skills (e.g., "React.js" -> "React").
+    4. Output must be valid JSON matching this schema:
+       {{
+         "role": "extracted role or null",
+         "skills": ["skill1", "skill2"],
+         "is_valid_document": true/false
+       }}
+    """
      
     client=AsyncOpenAI()
     
@@ -54,33 +58,36 @@ Role: Backend Engineer | Skills: Python, FastAPI, Docker, PostgreSQL, AWS, Redis
                 "content": f"{SYSTEM_PROMPT}"
             
             },
-                  {
+            {
                 "role": "user", 
                 "content": f"Extract key info:\n\n{text[:4000]}" 
-            }]
+            }],
+        response_format={"type":"json_object"}
     )    
     
-    result=response.choices[0].message.content
+    result=json.loads(response.choices[0].message.content)
     
-    return result
+    return jobData(**result)
 
 
-async def LLM_distilliation_for_jd(text):
+async def LLM_distilliation_for_jd(text:str, doc_type : str = "job description")->jobData:
     result=""
      
-    SYSTEM_PROMPT = """
-You are an expert Technical Recruiter. Your goal is to extract a precise list of hard technical skills and the target job role.
-
-Rules:
-1. Extract skills from ANYWHERE in the text (Skills section, Projects, Experience).
-2. Normalize skills (e.g., "React.js" -> "React", "AWS EC2" -> "AWS").
-3. IGNORE soft skills (Leadership, Communication).
-4. IGNORE general terms (Coding, Programming).
-5. Output format: "Role: <Predicted Role> | Skills: <Skill1>, <Skill2>, ..."
-
-Example Output:
-Role: Backend Engineer | Skills: Python, FastAPI, Docker, PostgreSQL, AWS, Redis
-"""
+    SYSTEM_PROMPT = f"""
+    You are an expert Technical Recruiter. Analyze this {doc_type}.
+    Extract the 'role' and a list of 'skills'.
+    
+    CRITICAL RULES:
+    1. If the text contains ANY keywords like 'Experience', 'Education', 'Skills', or job titles, assume it IS a valid document and set "is_valid_document": true.
+    2. Only set "false" if the text is completely gibberish or unrelated (like a cooking recipe).
+    3. Normalize skills (e.g., "React.js" -> "React").
+    4. Output must be valid JSON matching this schema:
+       {{
+         "role": "extracted role or null",
+         "skills": ["skill1", "skill2"],
+         "is_valid_document": true/false
+       }}
+    """
  
     client=AsyncOpenAI()
     
@@ -91,14 +98,15 @@ Role: Backend Engineer | Skills: Python, FastAPI, Docker, PostgreSQL, AWS, Redis
                 "content": f"{SYSTEM_PROMPT}"
             
             },
-                  {
+            {
                 "role": "user", 
                 "content": f"Extract key info:\n\n{text[:4000]}" 
-            }]
+            }],
+        response_format={"type":"json_object"}
     )    
     
-    result=response.choices[0].message.content
+    result=json.loads(response.choices[0].message.content)
     
-    return result
+    return jobData(**result)
 
 

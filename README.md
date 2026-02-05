@@ -80,7 +80,6 @@ Career AI is an intelligent backend system designed to analyze resumes, compare 
 ### `POST /get-relevance-score`
 Uploads a Resume (PDF) and a Job Description (PDF) to calculate how well they match.
 
-![Career AI Demo](https://github.com/user-attachments/assets/383ede50-4309-46d2-9c60-ce4ae2a7aac7)
 
 **Response:**
 ```json

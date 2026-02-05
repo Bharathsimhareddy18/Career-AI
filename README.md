@@ -87,9 +87,3 @@ Uploads a Resume (PDF) and a Job Description (PDF) to calculate how well they ma
   "Resume and JD relevance score is": "96",
   "message": "Success"
 }
-
-
-
-
-
-

@@ -1,33 +1,17 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi import UploadFile,File
-from app.utils import pdf_to_text,text_to_vector
+from app.utils import pdf_to_text,text_to_vector,LLM_distilliation_for_resume,LLM_distilliation_for_jd
 from app.features.relevence_score import relevence_score_function
+import asyncio
 
 app = FastAPI()
 
 @app.get("/")
 def read_root():
-    return {"Welcome Career-AI":"V1"}
-
-@app.get("/health-check")
-def health():
-    return {"condition":"healthy"}
-
-
-@app.post("/extract-text-from-pdf")
-async def text_extract(file: UploadFile = File(...)):
-    text=""
-    text=pdf_to_text(file)
-    return text
-
-@app.post("/text-to-vectors")
-async def texttovector(textfile: UploadFile=File(...)):
-    content_bytes = await textfile.read()
-    text_content = content_bytes.decode("utf-8")
-    vectors = text_to_vector(text_content)
-    
-    return vectors
+    return {"Welcome Career-AI":"V1",
+            "Status":"Healthy"
+            }
 
 @app.post("/get-relevence-score")
 async def relevencescore(resume: UploadFile=File(...),JD: UploadFile=File(...)):
@@ -35,8 +19,16 @@ async def relevencescore(resume: UploadFile=File(...),JD: UploadFile=File(...)):
     resume_text=pdf_to_text(resume)
     jd_text=pdf_to_text(JD)
     
-    resume_vectors= await text_to_vector(resume_text)
-    jd_vectors= await text_to_vector(jd_text)
+    
+    
+    resume_text_distilled,jd_text_distilled = await asyncio.gather( 
+    LLM_distilliation_for_resume(resume_text),
+    LLM_distilliation_for_jd(jd_text)
+    )
+    
+    resume_vectors,jd_vectors= await asyncio.gather(
+    text_to_vector(resume_text_distilled),
+    text_to_vector(jd_text_distilled))
     
     score=relevence_score_function(resume_vectors,jd_vectors)
     
@@ -46,6 +38,18 @@ async def relevencescore(resume: UploadFile=File(...),JD: UploadFile=File(...)):
         "message":"Success"
         }
     
+    
+    
+@app.post("/check")
+async def check(resume: UploadFile=File(...),JD: UploadFile=File(...)):
+    resume_text=pdf_to_text(resume)
+    jd_text=pdf_to_text(JD)
+    
+    resume_text_distilled= await LLM_distilliation_for_resume(resume_text)
+    jd_text_distilled= await LLM_distilliation_for_jd(jd_text)
+    
+    return{"resume":f"{resume_text_distilled}",
+           "JD":f"{jd_text_distilled}"}
 
 
 if __name__ == "__main__":

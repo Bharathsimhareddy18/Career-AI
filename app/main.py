@@ -1,7 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
-from fastapi import UploadFile,File
-from app.utils import pdf_to_text,text_to_vector,LLM_distilliation_for_resume,LLM_distilliation_for_jd
+from fastapi import UploadFile,File,Form
+from app.utils import pdf_to_text,text_to_vector,LLM_distilliation_for_resume,LLM_distilliation_for_jd,LLM_distilliation_rich_user_data, career_roadmap_gen
 from app.features.relevence_score import relevence_score_function
 import asyncio
 
@@ -47,6 +47,21 @@ async def relevencescore(resume: UploadFile=File(...),JD: UploadFile=File(...)):
         }
     
     
+@app.post("/Career-roadmap")
+async def careerroadmap(resume: UploadFile=File(...), Jobrole : str = Form(...), hours : float =Form(...)):
+    
+    resume_content=pdf_to_text(resume)
+    resume_distilled=await LLM_distilliation_rich_user_data(resume_content)
+    
+    if not resume_distilled.is_valid_document:
+        return {"Error":"Uploaded file is not a valid resume"}
+    
+    roadmap=await career_roadmap_gen(resume_distilled,Jobrole,hours)
+    
+    return {
+        "User profile":resume_distilled.model_dump(),
+        "result":roadmap.model_dump()
+        }
 
 
 if __name__ == "__main__":

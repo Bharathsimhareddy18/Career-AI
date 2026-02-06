@@ -2,8 +2,9 @@ import pdfplumber as pdf
 from fastapi import File
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
-from app.output_models import jobData,UserProfile,CareerRoadmap,GapAnalysis,RoadmapPhase
+from app.output_models import jobData,UserProfile,CareerRoadmap,GapAnalysis,RoadmapPhase,LeetCodeStats
 import json
+import httpx
 
 load_dotenv()
 
@@ -294,3 +295,87 @@ Output strictly in valid JSON matching this structure:
     except Exception as e:
         print(f"Error parsing roadmap: {e}")
         return e
+    
+    
+async def fetch_leetcdoe_userdata(username)->LeetCodeStats:
+    
+    query = """
+    query userProfile($username: String!) {
+      matchedUser(username: $username) {
+        submitStats: submitStatsGlobal {
+          acSubmissionNum {
+            difficulty
+            count
+          }
+        }
+        tagProblemCounts {
+          advanced { tagName problemsSolved }
+          intermediate { tagName problemsSolved }
+          fundamental { tagName problemsSolved }
+        }
+      }
+      recentAcSubmissionList(username: $username, limit: 15) {
+        title
+      }
+    }
+    """
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            
+            response=await client.post(
+                "https://leetcode.com/graphql",
+                json={"query": query, "variables": {"username": username}},
+                headers={
+                    "Content-Type": "application/json", 
+                    "Referer": "https://leetcode.com",
+                    "User-Agent": "Mozilla/5.0"
+                },
+                timeout=10.0
+            )
+            
+            data=response.json()
+            if "errors" in data or data.get("data", {}).get("matchedUser") is None:
+                print("User not found or API error")
+                return None
+        
+            user_data = data["data"]["matchedUser"]
+            stats_list = user_data["submitStats"]["acSubmissionNum"]
+            
+            stats_map = {item["difficulty"]: item["count"] for item in stats_list}
+
+            
+            tags_map = {}
+            for category in ["fundamental", "intermediate", "advanced"]:
+                for tag_obj in user_data["tagProblemCounts"][category]:
+                    tags_map[tag_obj["tagName"]] = tag_obj["problemsSolved"]
+        
+        # Recent List
+            recent_list = [item["title"] for item in data["data"]["recentAcSubmissionList"]]
+            
+            return LeetCodeStats(
+            total_solved=stats_map.get("All", 0),
+            easy_solved=stats_map.get("Easy", 0),
+            medium_solved=stats_map.get("Medium", 0),
+            hard_solved=stats_map.get("Hard", 0),
+            tag_counts=tags_map,
+            recent_problems=recent_list
+            )
+        
+            
+    
+    except Exception as e:
+        print(f"LeetCode Fetch Error: {e}")
+        return None 
+
+
+
+
+async def DSA_roadmap_gen(leetcode_data_of_user:str, target_company:str):
+    
+    
+    
+    
+    
+    
+    return 

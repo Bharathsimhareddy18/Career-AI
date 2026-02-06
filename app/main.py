@@ -1,7 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi import UploadFile,File,Form
-from app.utils import pdf_to_text,text_to_vector,LLM_distilliation_for_resume,LLM_distilliation_for_jd,LLM_distilliation_rich_user_data, career_roadmap_gen
+from app.utils import pdf_to_text,text_to_vector,LLM_distilliation_for_resume,LLM_distilliation_for_jd,LLM_distilliation_rich_user_data, career_roadmap_gen,fetch_leetcdoe_userdata
 from app.features.relevence_score import relevence_score_function
 import asyncio
 
@@ -63,6 +63,24 @@ async def careerroadmap(resume: UploadFile=File(...), Jobrole : str = Form(...),
         "result":roadmap.model_dump()
         }
 
+@app.post("/DSA-roadmap")
+async def dsa_roadmap_gen(leetcode_url:str):
+    
+    leetcode_url = leetcode_url.replace("https://", "").replace("http://", "").replace("www.", "")
+    
+    if leetcode_url.startswith("leetcode.com/u/"):
+        
+        leetcode_url= leetcode_url.replace("leetcode.com/u/","")
+        
+        username=leetcode_url.split("/")[0].split("?")[0]
+        
+        
+        data = await fetch_leetcdoe_userdata(username)
+    
+    
+    
+    
+    return {"data":data}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

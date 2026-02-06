@@ -1,5 +1,5 @@
 from pydantic import BaseModel,Field
-from typing import List, Optional
+from typing import List, Optional,Dict
 
 class jobData(BaseModel):
     role: str
@@ -38,3 +38,17 @@ class CareerRoadmap(BaseModel):
     estimated_total_weeks: int = Field(description="Total duration of the roadmap")
     gap_analysis: GapAnalysis
     roadmap: List[RoadmapPhase]
+    
+    
+class LeetCodeStats(BaseModel):
+    total_solved: int
+    easy_solved: int
+    medium_solved: int
+    hard_solved: int
+    tag_counts: Dict[str, int]
+    recent_problems: List[str]
+    
+class LeetcodeRoadmap(BaseModel):
+    user_target_company:str=Field(description="User choice of company or type of company")
+        
+    

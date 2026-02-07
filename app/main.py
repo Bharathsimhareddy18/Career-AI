@@ -1,11 +1,59 @@
 import uvicorn
 from fastapi import FastAPI
+import json
+import supabase
 from fastapi import UploadFile,File,Form
-from app.utils import pdf_to_text,text_to_vector,LLM_distilliation_for_resume,LLM_distilliation_for_jd,LLM_distilliation_rich_user_data, career_roadmap_gen,fetch_leetcdoe_userdata
+from app.utils import (
+    pdf_to_text,text_to_vector,
+    LLM_distilliation_for_resume,
+    LLM_distilliation_for_jd,
+    LLM_distilliation_rich_user_data, 
+    career_roadmap_gen,
+    fetch_leetcdoe_userdata,
+    suggested_questions,
+    DSA_roadmap_gen_llm,
+    resume_and_jd_diff
+    )
 from app.features.relevence_score import relevence_score_function
+from fastapi.middleware.cors import CORSMiddleware
+from app.output_models import leetcode_user
 import asyncio
 
 app = FastAPI()
+
+
+origins=["http://localhost:3000","http://localhost:8000","127.0.0.1.8000"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+CATEGORY_MAP = {}
+COMPANY_GROUPS = {"product": [], "service": [], "startup": []}
+
+try:
+    with open("./app/company_categories.json", "r") as f:
+        CATEGORY_MAP = json.load(f)
+        
+    for company, category in CATEGORY_MAP.items():
+        clean_cat = category.lower()
+        if "product" in clean_cat: key = "product"
+        elif "service" in clean_cat: key = "service"
+        elif "startup" in clean_cat: key = "startup"
+        else: key = None
+        
+        if key:
+            COMPANY_GROUPS[key].append(company)
+            
+    print(f"Loaded {len(CATEGORY_MAP)} companies into categories.")
+except Exception as e:
+    print(f"Warning: Could not load company_categories.json: {e}")
+
 
 @app.get("/")
 def read_root():
@@ -40,9 +88,14 @@ async def relevencescore(resume: UploadFile=File(...),JD: UploadFile=File(...)):
     
     score=relevence_score_function(resume_vectors,jd_vectors)
     
+    result=await resume_and_jd_diff(resume_str,jd_str,score)
+    
+    
+    
     
     return {
         "Resume and JD relevence score is": f"{int(score*100)}",
+        "Difference":result,
         "message":"Success"
         }
     
@@ -63,10 +116,21 @@ async def careerroadmap(resume: UploadFile=File(...), Jobrole : str = Form(...),
         "result":roadmap.model_dump()
         }
 
+
+@app.get("/DsaConfig")
+def DSAconfig():
+    return CATEGORY_MAP
+
+@app.get("/Dsalist")
+async def DSAconfig(target_company,):
+    questions=await suggested_questions(target_company,CATEGORY_MAP,COMPANY_GROUPS)
+    return questions
+
+
 @app.post("/DSA-roadmap")
-async def dsa_roadmap_gen(leetcode_url:str):
+async def dsa_roadmap_gen(leetcode_public:str,user_target_company:str,time_period_for_interview:int):
     
-    leetcode_url = leetcode_url.replace("https://", "").replace("http://", "").replace("www.", "")
+    leetcode_url =leetcode_public.replace("https://", "").replace("http://", "").replace("www.", "")
     
     if leetcode_url.startswith("leetcode.com/u/"):
         
@@ -77,10 +141,16 @@ async def dsa_roadmap_gen(leetcode_url:str):
         
         data = await fetch_leetcdoe_userdata(username)
     
+    recommended_list=await suggested_questions(user_target_company,CATEGORY_MAP,COMPANY_GROUPS)
+       
+    roadmap=await DSA_roadmap_gen_llm(data,user_target_company,recommended_list,time_period_for_interview)
     
     
     
-    return {"data":data}
+    return {
+        "User_data":data,
+        "Roadmap":roadmap
+        }
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

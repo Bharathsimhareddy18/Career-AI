@@ -3,8 +3,15 @@ from fastapi import File
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 from app.output_models import jobData,UserProfile,CareerRoadmap,GapAnalysis,RoadmapPhase,LeetCodeStats
+import requests
 import json
 import httpx
+from supabase._async.client import create_client as create_async_client
+import os
+
+
+model="gpt-5-mini"
+
 
 load_dotenv()
 
@@ -53,7 +60,7 @@ async def LLM_distilliation_for_resume(text : str , doc_type: str = "Resume")->j
     client=AsyncOpenAI()
     
     response=await client.chat.completions.create(
-        model="gpt-4o",
+        model=model,
         messages=[{
                 "role": "system", 
                 "content": f"{SYSTEM_PROMPT}"
@@ -82,6 +89,64 @@ async def LLM_distilliation_for_resume(text : str , doc_type: str = "Resume")->j
             summary = None
         )
         
+async def resume_and_jd_diff(resume_keys,jd_keys,relevence_score):
+    
+    client=AsyncOpenAI()
+    
+    SYSTEM_PROMPT = """
+    You are a brutal but efficient Resume Reviewer.
+    Analyze the gap between the Resume and JD.
+    
+    ### RULES FOR OUTPUT:
+    1. **Be Punchy:** Max 15 words per bullet point. No long explanations.
+    2. **Direct Action:** Start with a verb (e.g., "Add...", "Remove...", "Quantify...").
+    3. **Focus on Top 5:** Only list the top 3-5 critical gaps and improvements. Do not list minor nitpicks.
+
+    ### OUTPUT FORMAT (JSON):
+    {
+      "analysis_summary": "One sentence summary (e.g., 'Good tech stack, but lacks production engineering signals.')",
+      "key_gaps": [
+        "Missing 'PostgreSQL' and 'CI/CD' keywords.",
+        "Role reads 'Intern' but JD expects 'Mid-Level'.",
+        "Lack of quantitative metrics (Impact %)."
+      ],
+      "improvement_actions": [
+        "Add 'PostgreSQL', 'Docker', 'Pytest' to Skills section.",
+        "Rewrite bullet points to show 'Production' experience.",
+        "Add numbers: 'Reduced latency by 20%', 'Served 500 users'."
+      ]
+    }
+    """
+    USER_MESSAGE = f"""
+    ### CONTEXT
+    **Relevance Score:** {relevence_score}/100
+    
+    **Resume Profile:**
+    {json.dumps(resume_keys, indent=2)}
+    
+    **Job Description Profile:**
+    {json.dumps(jd_keys, indent=2)}
+    
+    Explain the gaps that caused this score.
+    """
+    
+    response=await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role":"system","content":SYSTEM_PROMPT},
+            {"role": "user", "content": USER_MESSAGE}
+                  ],
+        response_format={"type": "json_object"}
+        
+        )
+    
+    try:
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        print(f"Error parsing gap analysis: {e}")
+        return {"error": "Failed to analyze gaps"}
+
+
 
 
 async def LLM_distilliation_for_jd(text:str, doc_type : str = "job description")->jobData:
@@ -106,7 +171,7 @@ async def LLM_distilliation_for_jd(text:str, doc_type : str = "job description")
     client=AsyncOpenAI()
     
     response=await client.chat.completions.create(
-        model="gpt-4o",
+        model=model,
         messages=[{
                 "role": "system", 
                 "content": f"{SYSTEM_PROMPT}"
@@ -187,7 +252,7 @@ async def LLM_distilliation_rich_user_data(text:str)->UserProfile:
     client=AsyncOpenAI()
     
     response=await client.chat.completions.create(
-        model="gpt-4o",
+        model=model,
         messages=[{
                 "role": "system", 
                 "content": f"{SYSTEM_PROMPT}"
@@ -279,7 +344,7 @@ Output strictly in valid JSON matching this structure:
     client=AsyncOpenAI()
     
     response=await client.chat.completions.create(
-        model="gpt-4o",
+        model=model,
         messages=[
             {"role":"system","content":f"{SYSTEM_PROMPT}"},
             {"role": "user", "content": "Generate the roadmap now."}
@@ -370,12 +435,124 @@ async def fetch_leetcdoe_userdata(username)->LeetCodeStats:
 
 
 
+async def suggested_questions(target_company,CATEGORY_MAP,COMPANY_GROUPS):
+    
+    SUPABASE_URL = os.getenv("SUPABASE_URL", "YOUR_URL_HERE")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "YOUR_KEY_HERE")
+    
+    supabase_client = await create_async_client(SUPABASE_URL, SUPABASE_KEY)
+    target_input = target_company.lower().strip()
+    
+    selected_companies = []
+    
+    if "product" in target_input:
+        selected_companies = COMPANY_GROUPS["product"]
+    elif "service" in target_input:
+        selected_companies = COMPANY_GROUPS["service"]
+    elif "startup" in target_input:
+        selected_companies = COMPANY_GROUPS["startup"]
+    elif target_input in CATEGORY_MAP:
+        selected_companies = [target_input]
+    else:
+        
+        selected_companies = COMPANY_GROUPS["product"] 
+    
+    recommended_questions = []
+    
+    recommended_questions = []
+    try:
+        
+        response = await supabase_client.rpc("get_top_questions", {
+            "p_companies": selected_companies,
+            "p_limit": 60
+        }).execute()
+        
+        recommended_questions = response.data
+    except Exception as e:
+        print(f"Supabase RPC Error: {e}")
+        
+    return {
+        "recommended_questions": recommended_questions
+    }
+    
+    
 
-async def DSA_roadmap_gen(leetcode_data_of_user:str, target_company:str):
+
+
+
+async def DSA_roadmap_gen_llm(leetcode_data_of_user:str, target_company:str ,recommended_dict:dict,prep_months:int):
     
+    total_weeks=prep_months*4
     
+    recommended_list=recommended_dict["recommended_questions"]
     
+    if prep_months <= 1:
+        intensity = "High Intensity (Bootcamp)"
+        problems_per_week = "15-20"
+    elif prep_months <= 3:
+        intensity = "Medium Intensity (Steady)"
+        problems_per_week = "10-12"
+    else:
+        intensity = "Low Intensity (Marathon)"
+        problems_per_week = "6-8"
     
+    SYSTEM_PROMPT = f"""
+    YYou are an elite Tech Interview Coach. Create a {total_weeks}-WEEK study plan ({intensity} Mode) for {target_company} based.
     
+    ### STRICT CURRICULUM RULES:
+    1. **Volume Requirement:** Assign **{problems_per_week} QUESTIONS per week**. (One per day + extras).
+    2. **Pattern-Based Learning:** Focus on specific patterns (Sliding Window, DFS) per week.
+       - Weeks 1-{total_weeks//3}: Focus on EASY/MEDIUM problems to build confidence.
+       - Weeks {total_weeks//3}-{2*total_weeks//3}: Focus on MEDIUM/HARD company-specific problems.
+       - Final Weeks: Mock Interviews & Hardest patterns (DP/Graph).
+    3. **Gap Filling:** Prioritize patterns where the user's "Tag Counts" are low (from context).
+    4. **Resource Specificity:** Recommend specific resources for that pattern (e.g., "NeetCode 150 Sliding Window video").
+
+    ### OUTPUT FORMAT (JSON):
+    {{
+      "strategy_summary": "...",
+      "weekly_plan": [
+        {{
+          "week": 1,
+          "theme": "Pattern: Sliding Window & Two Pointers",
+          "difficulty_focus": "Easy -> Medium",
+          "goals": ["Master fixed vs variable window", "Understand shrinking window condition"],
+          "questions": [
+             {{ "title": "Maximum Subarray", "url": "...", "difficulty": "Easy", "pattern": "Kadane's Algo" }}
+          ],
+          "resources": "..."
+        }}
+      ]
+    }}
+    """
+    user_stats_str = json.dumps(leetcode_data_of_user.model_dump(), indent=2) 
     
-    return 
+    user_message = f"""
+    ### CONTEXT
+    1. **Target Company:** {target_company}
+    2. **User LeetCode Stats:** 
+    {user_stats_str}
+    3. **High-Value Recommended Questions (From DB):**
+    {json.dumps(recommended_list[:50])} 
+    
+    Generate the roadmap JSON now.
+    """
+
+    client = AsyncOpenAI()
+    
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_message}
+        ],
+        response_format={"type": "json_object"}
+    )
+    
+    try:
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        print(f"Error parsing LLM response: {e}")
+        return {"error": "Failed to generate roadmap"}
+    
+

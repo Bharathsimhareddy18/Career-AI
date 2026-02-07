@@ -48,6 +48,13 @@ class LeetCodeStats(BaseModel):
     tag_counts: Dict[str, int]
     recent_problems: List[str]
     
+    
+    
+class leetcode_user(BaseModel):
+    leetcode_public:str=Field(description="user leetcode profile link")
+    user_target_company:str=Field(description="user target company")
+    time_period_for_interview:int=Field(description="no of months for prep")
+
 class LeetcodeRoadmap(BaseModel):
     user_target_company:str=Field(description="User choice of company or type of company")
         

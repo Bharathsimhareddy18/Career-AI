@@ -16,7 +16,7 @@ model="gpt-5-mini"
 
 load_dotenv()
 
-
+#converts pdf to text
 def pdf_to_text(file):
 
     with pdf.open(file.file) as pdf_content:

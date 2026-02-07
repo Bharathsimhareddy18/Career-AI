@@ -12,6 +12,7 @@ import os
 
 model="gpt-5-mini"
 
+#all needed functions here
 
 load_dotenv()
 

@@ -10,7 +10,7 @@ from supabase._async.client import create_client as create_async_client
 import os
 
 
-model="gpt-5"
+model="gpt-5-mini"
 
 #all needed functions here
 

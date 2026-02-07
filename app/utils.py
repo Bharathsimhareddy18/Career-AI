@@ -26,6 +26,8 @@ def pdf_to_text(file):
                 
     return text
 
+#converts into vectors
+
 async def text_to_vector(text):
     model_name = "text-embedding-3-small"
     client=AsyncOpenAI()

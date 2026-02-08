@@ -303,7 +303,10 @@ async def LLM_distilliation_rich_user_data(text:str)->UserProfile:
             project_summaries=[]
         )        
 
-
+@retry(
+    stop=stop_after_attempt(4), 
+    wait=wait_random_exponential(min=1, max=10)
+)
 async def career_roadmap_gen(resume_context:str, target_jobrole:str, hours_per_day:float):
     
     result=""
@@ -381,7 +384,10 @@ Output strictly in valid JSON matching this structure:
         print(f"Error parsing roadmap: {e}")
         return e
     
-    
+@retry(
+    stop=stop_after_attempt(4), 
+    wait=wait_random_exponential(min=1, max=10)
+)    
 async def fetch_leetcdoe_userdata(username)->LeetCodeStats:
     
     query = """
@@ -454,7 +460,10 @@ async def fetch_leetcdoe_userdata(username)->LeetCodeStats:
         return None 
 
 
-
+@retry(
+    stop=stop_after_attempt(4), 
+    wait=wait_random_exponential(min=1, max=10)
+)
 async def suggested_questions(target_company,CATEGORY_MAP,COMPANY_GROUPS):
     
     SUPABASE_URL = os.getenv("SUPABASE_URL", "YOUR_URL_HERE")
@@ -499,7 +508,10 @@ async def suggested_questions(target_company,CATEGORY_MAP,COMPANY_GROUPS):
 
 
 
-
+@retry(
+    stop=stop_after_attempt(4), 
+    wait=wait_random_exponential(min=1, max=10)
+)
 async def DSA_roadmap_gen_llm(leetcode_data_of_user:str, target_company:str ,recommended_dict:dict,prep_months:int):
     
     total_weeks=prep_months*4

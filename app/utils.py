@@ -1,17 +1,28 @@
-import pdfplumber as pdf
 from fastapi import File
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 from app.output_models import jobData,UserProfile,CareerRoadmap,GapAnalysis,RoadmapPhase,LeetCodeStats
+import pymupdf as fitz
 import requests
 import json
 import httpx
+import logging
 from supabase._async.client import create_client as create_async_client
 import os
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-model="gpt-5-mini"
+FAST_MODEL = "gpt-4o-mini" 
+SMART_MODEL = "gpt-5-mini"
+
+client=AsyncOpenAI()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+supabase_client = create_async_client(SUPABASE_URL, SUPABASE_KEY)
 
 #all needed functions here
 
@@ -20,7 +31,7 @@ load_dotenv()
 #converts pdf to text
 def pdf_to_text(file):
 
-    with pdf.open(file.file) as pdf_content:
+    with fitz.open(file.file) as pdf_content:
         text = ""
         for page in pdf_content.pages:
             text += page.extract_text() + "\n"
@@ -34,7 +45,6 @@ def pdf_to_text(file):
 )
 async def text_to_vector(text):
     model_name = "text-embedding-3-small"
-    client=AsyncOpenAI()
     
     response=await client.embeddings.create(
         input=text,
@@ -66,11 +76,9 @@ async def LLM_distilliation_for_resume(text : str , doc_type: str = "Resume")->j
          "is_valid_document": true/false
        }}
     """
-     
-    client=AsyncOpenAI()
     
     response=await client.chat.completions.create(
-        model=model,
+        model=FAST_MODEL,
         messages=[{
                 "role": "system", 
                 "content": f"{SYSTEM_PROMPT}"
@@ -105,7 +113,6 @@ async def LLM_distilliation_for_resume(text : str , doc_type: str = "Resume")->j
 )        
 async def resume_and_jd_diff(resume_keys,jd_keys,relevence_score):
     
-    client=AsyncOpenAI()
     
     SYSTEM_PROMPT = """
     You are a brutal but efficient Resume Reviewer.
@@ -145,7 +152,7 @@ async def resume_and_jd_diff(resume_keys,jd_keys,relevence_score):
     """
     
     response=await client.chat.completions.create(
-        model=model,
+        model=SMART_MODEL,
         messages=[
             {"role":"system","content":SYSTEM_PROMPT},
             {"role": "user", "content": USER_MESSAGE}
@@ -184,11 +191,9 @@ async def LLM_distilliation_for_jd(text:str, doc_type : str = "job description")
          "is_valid_document": true/false
        }}
     """
- 
-    client=AsyncOpenAI()
     
     response=await client.chat.completions.create(
-        model=model,
+        model=FAST_MODEL,
         messages=[{
                 "role": "system", 
                 "content": f"{SYSTEM_PROMPT}"
@@ -269,10 +274,8 @@ async def LLM_distilliation_rich_user_data(text:str)->UserProfile:
     {json.dumps(output_example)}
     """
  
-    client=AsyncOpenAI()
-    
     response=await client.chat.completions.create(
-        model=model,
+        model=SMART_MODEL,
         messages=[{
                 "role": "system", 
                 "content": f"{SYSTEM_PROMPT}"
@@ -364,10 +367,8 @@ Output strictly in valid JSON matching this structure:
 """
 
 
-    client=AsyncOpenAI()
-    
     response=await client.chat.completions.create(
-        model=model,
+        model=SMART_MODEL,
         messages=[
             {"role":"system","content":f"{SYSTEM_PROMPT}"},
             {"role": "user", "content": "Generate the roadmap now."}
@@ -466,10 +467,6 @@ async def fetch_leetcdoe_userdata(username)->LeetCodeStats:
 )
 async def suggested_questions(target_company,CATEGORY_MAP,COMPANY_GROUPS):
     
-    SUPABASE_URL = os.getenv("SUPABASE_URL", "YOUR_URL_HERE")
-    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "YOUR_KEY_HERE")
-    
-    supabase_client = await create_async_client(SUPABASE_URL, SUPABASE_KEY)
     target_input = target_company.lower().strip()
     
     selected_companies = []
@@ -529,7 +526,7 @@ async def DSA_roadmap_gen_llm(leetcode_data_of_user:str, target_company:str ,rec
         problems_per_week = "6-8"
     
     SYSTEM_PROMPT = f"""
-    YYou are an elite Tech Interview Coach. Create a {total_weeks}-WEEK study plan ({intensity} Mode) for {target_company} based.
+    You are an elite Tech Interview Coach. Create a {total_weeks}-WEEK study plan ({intensity} Mode) for {target_company} based.
     
     ### STRICT CURRICULUM RULES:
     1. **Volume Requirement:** Assign **{problems_per_week} QUESTIONS per week**. (One per day + extras).
@@ -570,10 +567,9 @@ async def DSA_roadmap_gen_llm(leetcode_data_of_user:str, target_company:str ,rec
     Generate the roadmap JSON now.
     """
 
-    client = AsyncOpenAI()
     
     response = await client.chat.completions.create(
-        model=model,
+        model=SMART_MODEL,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_message}

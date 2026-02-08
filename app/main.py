@@ -22,7 +22,7 @@ import asyncio
 app = FastAPI()
 
 
-origins=["http://localhost:3000","http://localhost:8000","127.0.0.1.8000"]
+origins=["http://localhost:3000","http://localhost:8000","http://127.0.0.1.8000"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -64,9 +64,10 @@ def read_root():
 @app.post("/get-relevence-score")
 async def relevencescore(resume: UploadFile=File(...),JD: UploadFile=File(...)):
     
-    resume_text=pdf_to_text(resume)
-    jd_text=pdf_to_text(JD)
-    
+    resume_text,jd_text= await asyncio.gather(
+    asyncio.to_thread(pdf_to_text,resume),
+    asyncio.to_thread(pdf_to_text,JD)
+    )
     
     
     resume_distilled,jd_distilled = await asyncio.gather( 
@@ -103,7 +104,7 @@ async def relevencescore(resume: UploadFile=File(...),JD: UploadFile=File(...)):
 @app.post("/Career-roadmap")
 async def careerroadmap(resume: UploadFile=File(...), Jobrole : str = Form(...), hours : float =Form(...)):
     
-    resume_content=pdf_to_text(resume)
+    resume_content=await asyncio.to_thread(pdf_to_text,resume)
     resume_distilled=await LLM_distilliation_rich_user_data(resume_content)
     
     if not resume_distilled.is_valid_document:
@@ -139,9 +140,9 @@ async def dsa_roadmap_gen(leetcode_public:str,user_target_company:str,time_perio
         username=leetcode_url.split("/")[0].split("?")[0]
         
         
-        data = await fetch_leetcdoe_userdata(username)
-    
-    recommended_list=await suggested_questions(user_target_company,CATEGORY_MAP,COMPANY_GROUPS)
+        data,recommended_list= await asyncio.gather(
+        fetch_leetcdoe_userdata(username),
+        suggested_questions(user_target_company,CATEGORY_MAP,COMPANY_GROUPS))
        
     roadmap=await DSA_roadmap_gen_llm(data,user_target_company,recommended_list,time_period_for_interview)
     

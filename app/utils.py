@@ -2,6 +2,7 @@ import pdfplumber as pdf
 from fastapi import File
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
+from tenacity import retry, stop_after_attempt, wait_random_exponential
 from app.output_models import jobData,UserProfile,CareerRoadmap,GapAnalysis,RoadmapPhase,LeetCodeStats
 import requests
 import json
@@ -27,7 +28,10 @@ def pdf_to_text(file):
     return text
 
 #converts into vectors
-
+@retry(
+    stop=stop_after_attempt(4), 
+    wait=wait_random_exponential(min=1, max=10)
+)
 async def text_to_vector(text):
     model_name = "text-embedding-3-small"
     client=AsyncOpenAI()
@@ -40,7 +44,10 @@ async def text_to_vector(text):
     
     return vectors
 
-
+@retry(
+    stop=stop_after_attempt(4), 
+    wait=wait_random_exponential(min=1, max=10)
+)
 async def LLM_distilliation_for_resume(text : str , doc_type: str = "Resume")->jobData:
     result=""
      

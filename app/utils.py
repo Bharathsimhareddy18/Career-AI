@@ -99,6 +99,10 @@ async def LLM_distilliation_for_resume(text : str , doc_type: str = "Resume")->j
             summary = None
         )
         
+@retry(
+    stop=stop_after_attempt(4), 
+    wait=wait_random_exponential(min=1, max=10)
+)        
 async def resume_and_jd_diff(resume_keys,jd_keys,relevence_score):
     
     client=AsyncOpenAI()
@@ -158,7 +162,10 @@ async def resume_and_jd_diff(resume_keys,jd_keys,relevence_score):
 
 
 
-
+@retry(
+    stop=stop_after_attempt(4), 
+    wait=wait_random_exponential(min=1, max=10)
+)
 async def LLM_distilliation_for_jd(text:str, doc_type : str = "job description")->jobData:
     result=""
      
@@ -210,7 +217,10 @@ async def LLM_distilliation_for_jd(text:str, doc_type : str = "job description")
         )
 
 
-
+@retry(
+    stop=stop_after_attempt(4), 
+    wait=wait_random_exponential(min=1, max=10)
+)
 async def LLM_distilliation_rich_user_data(text:str)->UserProfile:
     result=""
      

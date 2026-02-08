@@ -2,8 +2,8 @@ from pydantic import BaseModel,Field
 from typing import List, Optional,Dict
 
 class jobData(BaseModel):
-    role: str
-    skills: List[str]
+    role: Optional[str] 
+    skills: Optional[List[str]]
     is_valid_document: bool 
     summary: Optional[str] = None
     

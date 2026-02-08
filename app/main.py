@@ -12,7 +12,8 @@ from app.utils import (
     fetch_leetcdoe_userdata,
     suggested_questions,
     DSA_roadmap_gen_llm,
-    resume_and_jd_diff
+    resume_and_jd_diff,
+    docx_to_text
     )
 from app.features.relevence_score import relevence_score_function
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,6 +56,17 @@ except Exception as e:
     print(f"Warning: Could not load company_categories.json: {e}")
 
 
+def parse_file(file_obj: UploadFile, file_bytes: bytes) -> str:
+    filename = file_obj.filename.lower()
+    
+    if filename.endswith(".pdf"):
+        return pdf_to_text(file_bytes)
+    elif filename.endswith(".docx"):
+        return docx_to_text(file_bytes)
+    else:
+        return " "
+    
+    
 @app.get("/")
 def read_root():
     return {"Welcome Career-AI":"V1",
@@ -64,11 +76,18 @@ def read_root():
 @app.post("/get-relevence-score")
 async def relevencescore(resume: UploadFile=File(...),JD: UploadFile=File(...)):
     
-    resume_text,jd_text= await asyncio.gather(
-    asyncio.to_thread(pdf_to_text,resume),
-    asyncio.to_thread(pdf_to_text,JD)
+    resume_bytes = await resume.read()
+    jd_bytes = await JD.read()
+    
+    resume_text, jd_text = await asyncio.gather(
+        asyncio.to_thread(parse_file, resume, resume_bytes),
+        asyncio.to_thread(parse_file, JD, jd_bytes)
     )
     
+    if not resume_text.strip():
+        return {"Error": "Resume format unsupported or empty. Use PDF or DOCX."}
+    if not jd_text.strip():
+        return {"Error": "JD format unsupported or empty. Use PDF or DOCX."}
     
     resume_distilled,jd_distilled = await asyncio.gather( 
     LLM_distilliation_for_resume(resume_text),
@@ -104,7 +123,14 @@ async def relevencescore(resume: UploadFile=File(...),JD: UploadFile=File(...)):
 @app.post("/Career-roadmap")
 async def careerroadmap(resume: UploadFile=File(...), Jobrole : str = Form(...), hours : float =Form(...)):
     
-    resume_content=await asyncio.to_thread(pdf_to_text,resume)
+    resume_bytes = await resume.read()
+    
+    resume_content=await asyncio.to_thread(parse_file, resume, resume_bytes)
+    
+    if not resume_content.strip():
+        return {"Error": "Resume format unsupported or empty. Use PDF or DOCX."}
+   
+    
     resume_distilled=await LLM_distilliation_rich_user_data(resume_content)
     
     if not resume_distilled.is_valid_document:

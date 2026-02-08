@@ -10,6 +10,9 @@ import httpx
 import logging
 from supabase._async.client import create_client as create_async_client
 import os
+import docx
+import io
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,26 +20,49 @@ logger = logging.getLogger(__name__)
 FAST_MODEL = "gpt-4o-mini" 
 SMART_MODEL = "gpt-5-mini"
 
-client=AsyncOpenAI()
+
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+OPENAI_API_KEY=os.getenv("OPENAI_API_KEY")
 
+client=AsyncOpenAI()
 supabase_client = create_async_client(SUPABASE_URL, SUPABASE_KEY)
 
 #all needed functions here
 
-load_dotenv()
-
+def docx_to_text(file_bytes: bytes) -> str:
+    try:
+        # Load bytes into a file-like object
+        doc_stream = io.BytesIO(file_bytes)
+        doc = docx.Document(doc_stream)
+        
+        full_text = []
+        for para in doc.paragraphs:
+            full_text.append(para.text)
+            
+        return "\n".join(full_text)
+    except Exception as e:
+        logger.error(f"Error parsing DOCX: {e}")
+        return ""
+    
 #converts pdf to text
 def pdf_to_text(file):
+    try:
+        # Read the file bytes into memory
+        file_bytes = file
+        
+        # Open with PyMuPDF using the stream
+        with fitz.open(stream=file_bytes, filetype="pdf") as pdf_content:
+            text = ""
+            for page in pdf_content:
+                text += page.get_text("text") + "\n"
+        return text
+        
+    except Exception as e:
+        logger.error(f"Error parsing PDF: {e}")
+        return ""
 
-    with fitz.open(file.file) as pdf_content:
-        text = ""
-        for page in pdf_content.pages:
-            text += page.extract_text() + "\n"
-                
-    return text
 
 #converts into vectors
 @retry(
@@ -177,19 +203,34 @@ async def LLM_distilliation_for_jd(text:str, doc_type : str = "job description")
     result=""
      
     SYSTEM_PROMPT = f"""
-    You are an expert Technical Recruiter. Analyze this {doc_type}.
-    Extract the 'role' and a list of 'skills'.
+    You are an expert Technical Recruiter. Your task is to extract job details ONLY from valid Job Descriptions (JDs).
+
+    ### STEP 1: STRICT VALIDATION CHECK
+    Does this text describe an **OPEN JOB POSITION** that a candidate can apply for?
+
+    IT IS A VALID JD IF:
+    - It lists "Responsibilities", "Requirements", "Qualifications", or "About the Role".
+    - It implies hiring intent (e.g., "We are looking for...", "Join our team").
     
-    CRITICAL RULES:
-    1. If the text contains ANY keywords like 'Experience', 'Education', 'Skills', or job titles, assume it IS a valid document and set "is_valid_document": true.
-    2. Only set "false" if the text is completely gibberish or unrelated (like a cooking recipe).
-    3. Normalize skills (e.g., "React.js" -> "React").
-    4. Output must be valid JSON matching this schema:
-       {{
+    IT IS **NOT** A JD (INVALID) IF:
+    - It is a **Research Paper** or **Abstract** (e.g., starts with "Abstract", discusses "methodology", "results", "conclusion").
+    - It is a Resume/CV of a person.
+    - It is a news article or tutorial.
+
+    ### STEP 2: EXTRACTION (Only if Valid)
+    If Valid:
+    1. Extract the 'role' (Job Title).
+    2. Extract 'skills' (Tech stack, tools). Normalize them (e.g., "React.js" -> "React").
+    
+    If Invalid:
+    Set "is_valid_document": false.
+
+    ### OUTPUT FORMAT (JSON)
+    {{
          "role": "extracted role or null",
          "skills": ["skill1", "skill2"],
          "is_valid_document": true/false
-       }}
+    }}
     """
     
     response=await client.chat.completions.create(
@@ -217,7 +258,7 @@ async def LLM_distilliation_for_jd(text:str, doc_type : str = "job description")
         return jobData(
             role = "unknown",
             skills= [],
-            is_valid_document = 0,
+            is_valid_document = False,
             summary = None
         )
 

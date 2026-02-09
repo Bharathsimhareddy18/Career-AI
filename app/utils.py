@@ -8,10 +8,11 @@ import requests
 import json
 import httpx
 import logging
-from supabase._async.client import create_client as create_async_client
 import os
 import docx
 import io
+from supabase import AsyncClient
+
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
@@ -22,12 +23,18 @@ SMART_MODEL = "gpt-5-mini"
 
 
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
 OPENAI_API_KEY=os.getenv("OPENAI_API_KEY")
 
 client=AsyncOpenAI()
-supabase_client = create_async_client(SUPABASE_URL, SUPABASE_KEY)
+
+def set_supabase_client(client: AsyncClient):
+    global _supabase_client
+    _supabase_client = client
+    
+    
+    
+    
 
 #all needed functions here
 
@@ -508,6 +515,8 @@ async def fetch_leetcdoe_userdata(username)->LeetCodeStats:
 )
 async def suggested_questions(target_company,CATEGORY_MAP,COMPANY_GROUPS):
     
+    
+    
     target_input = target_company.lower().strip()
     
     selected_companies = []
@@ -529,7 +538,7 @@ async def suggested_questions(target_company,CATEGORY_MAP,COMPANY_GROUPS):
     recommended_questions = []
     try:
         
-        response = await supabase_client.rpc("get_top_questions", {
+        response = await _supabase_client.rpc("get_top_questions", {
             "p_companies": selected_companies,
             "p_limit": 60
         }).execute()
@@ -543,7 +552,6 @@ async def suggested_questions(target_company,CATEGORY_MAP,COMPANY_GROUPS):
     }
     
     
-
 
 
 @retry(

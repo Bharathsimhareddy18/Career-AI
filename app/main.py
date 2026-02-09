@@ -13,14 +13,29 @@ from app.utils import (
     suggested_questions,
     DSA_roadmap_gen_llm,
     resume_and_jd_diff,
-    docx_to_text
+    docx_to_text,
+    set_supabase_client
     )
+from contextlib import asynccontextmanager
 from app.features.relevence_score import relevence_score_function
 from fastapi.middleware.cors import CORSMiddleware
 from app.output_models import leetcode_user
 import asyncio
+from supabase import acreate_client, AsyncClient
+import os
 
-app = FastAPI()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+    
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+     client = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
+     set_supabase_client(client)
+     yield
+    
+app = FastAPI(lifespan=lifespan)
 
 
 origins=["http://localhost:3000","http://localhost:8000","http://127.0.0.1.8000"]

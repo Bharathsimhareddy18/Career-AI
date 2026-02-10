@@ -48,7 +48,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-#mapping change
 CATEGORY_MAP = {}
 COMPANY_GROUPS = {"product": [], "service": [], "startup": []}
 

@@ -23,6 +23,7 @@ from app.output_models import leetcode_user
 import asyncio
 from supabase import acreate_client, AsyncClient
 import os
+from openai import AsyncClient
 
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")

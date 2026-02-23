@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 from app.output_models import jobData,UserProfile,CareerRoadmap,GapAnalysis,RoadmapPhase,LeetCodeStats
 import pymupdf as fitz
+from sentence_transformers import SentenceTransformer
+import numpy as np
 import requests
 import json
 import httpx
@@ -185,7 +187,7 @@ async def resume_and_jd_diff(resume_keys,jd_keys,relevence_score):
     """
     
     response=await client.chat.completions.create(
-        model=SMART_MODEL,
+        model=FAST_MODEL,
         messages=[
             {"role":"system","content":SYSTEM_PROMPT},
             {"role": "user", "content": USER_MESSAGE}

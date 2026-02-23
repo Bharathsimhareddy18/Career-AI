@@ -1,8 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 import json
-import supabase
-from fastapi import UploadFile,File,Form
+from fastapi import UploadFile,File,Form,Request
 from app.utils import (
     pdf_to_text,text_to_vector,
     LLM_distilliation_for_resume,
@@ -18,28 +17,36 @@ from app.utils import (
     )
 from contextlib import asynccontextmanager
 from app.features.relevence_score import relevence_score_function
+from sentence_transformers import SentenceTransformer
+import numpy as np
 from fastapi.middleware.cors import CORSMiddleware
-from app.output_models import leetcode_user
 import asyncio
-from supabase import acreate_client, AsyncClient
+from supabase import acreate_client
 import os
-from openai import AsyncClient
 
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+ 
     
 @asynccontextmanager
 async def lifespan(app: FastAPI):
      client = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
      set_supabase_client(client)
+     app.state.vector_model= SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
      yield
     
 app = FastAPI(lifespan=lifespan)
 
 
-origins=["http://localhost:3000","http://localhost:8000","http://127.0.0.1.8000"]
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+origins = [
+    FRONTEND_URL,
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -89,7 +96,9 @@ def read_root():
             }
 
 @app.post("/get-relevence-score")
-async def relevencescore(resume: UploadFile=File(...),JD: UploadFile=File(...)):
+async def relevencescore(request:Request,resume: UploadFile=File(...),JD: UploadFile=File(...)):
+    
+    vector_model = request.app.state.vector_model
     
     resume_bytes = await resume.read()
     jd_bytes = await JD.read()
@@ -117,11 +126,9 @@ async def relevencescore(resume: UploadFile=File(...),JD: UploadFile=File(...)):
     resume_str=f"Role:{resume_distilled.role}|Skills:{resume_distilled.skills}"
     jd_str=f"Role:{jd_distilled.role}|Skills:{jd_distilled.skills}"
     
-    resume_vectors,jd_vectors= await asyncio.gather(
-    text_to_vector(resume_str),
-    text_to_vector(jd_str))
+    embeddings = vector_model.encode([resume_str, jd_str])
     
-    score=relevence_score_function(resume_vectors,jd_vectors)
+    score = relevence_score_function([embeddings[0]], [embeddings[1]])
     
     result=await resume_and_jd_diff(resume_str,jd_str,score)
     
@@ -171,6 +178,10 @@ async def DSAconfig(target_company,):
 
 @app.post("/DSA-roadmap")
 async def dsa_roadmap_gen(leetcode_public:str,user_target_company:str,time_period_for_interview:int):
+    
+    if not leetcode_url.startswith("leetcode.com/u/"):
+        return {"Error": "Invalid LeetCode URL. Use format: https://leetcode.com/u/username"}
+
     
     leetcode_url =leetcode_public.replace("https://", "").replace("http://", "").replace("www.", "")
     

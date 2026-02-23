@@ -177,33 +177,40 @@ async def DSAconfig(target_company,):
 
 
 @app.post("/DSA-roadmap")
-async def dsa_roadmap_gen(leetcode_public:str,user_target_company:str,time_period_for_interview:int):
+async def dsa_roadmap_gen(leetcode_public: str, user_target_company: str, time_period_for_interview: int):
     
+    # 1. Clean the input URL
+    leetcode_url = leetcode_public.replace("https://", "").replace("http://", "").replace("www.", "")
+    
+    # 2. Validate URL Format
     if not leetcode_url.startswith("leetcode.com/u/"):
         return {"Error": "Invalid LeetCode URL. Use format: https://leetcode.com/u/username"}
+    
+    # 3. Extract Username
+    clean_url_suffix = leetcode_url.replace("leetcode.com/u/", "")
+    username = clean_url_suffix.split("/")[0].split("?")[0]
+        
+    # 4. Fetch Data concurrently
+    try:
+        data, recommended_list = await asyncio.gather(
+            fetch_leetcdoe_userdata(username),
+            suggested_questions(user_target_company, CATEGORY_MAP, COMPANY_GROUPS)
+        )
+    except Exception as e:
+        return {"Error": f"Failed to fetch data: {str(e)}"}
+    
+    # 5. Check if user was found
+    if not data:
+        return {"Error": f"Could not find LeetCode profile for user: {username}"}
 
-    
-    leetcode_url =leetcode_public.replace("https://", "").replace("http://", "").replace("www.", "")
-    
-    if leetcode_url.startswith("leetcode.com/u/"):
-        
-        leetcode_url= leetcode_url.replace("leetcode.com/u/","")
-        
-        username=leetcode_url.split("/")[0].split("?")[0]
-        
-        
-        data,recommended_list= await asyncio.gather(
-        fetch_leetcdoe_userdata(username),
-        suggested_questions(user_target_company,CATEGORY_MAP,COMPANY_GROUPS))
-       
-    roadmap=await DSA_roadmap_gen_llm(data,user_target_company,recommended_list,time_period_for_interview)
-    
-    
+    # 6. Generate Roadmap with LLM
+    roadmap = await DSA_roadmap_gen_llm(data, user_target_company, recommended_list, time_period_for_interview)
     
     return {
-        "User_data":data,
-        "Roadmap":roadmap
-        }
+        "User_data": data,
+        "Roadmap": roadmap
+    }
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

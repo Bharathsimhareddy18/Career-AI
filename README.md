@@ -1,88 +1,57 @@
-# Career AI
+# Career AI — Intelligent Resume & JD Matching System
+An AI-powered backend that analyzes resumes, scores them against job descriptions,
+and generates personalized career roadmaps — using LLMs and vector embeddings.
 
-**An AI-powered Career Coach that bridges the gap between your resume and your dream job.**
-
-Career AI is an intelligent backend system designed to analyze resumes, compare them against job descriptions (JDs), and generate personalized career roadmaps. It uses Large Language Models (LLMs) and Vector Embeddings to provide mathematically precise relevance scores and actionable insights.
-
-![Career AI Output](https://github.com/user-attachments/assets/383ede50-4309-46d2-9c60-ce4ae2a7aac7)
-*Current Output: Resume vs. JD Relevance Score using Cosine Similarity*
+Live: https://career-ai-flax.vercel.app/
 
 ---
 
-## Features
+<img width="1918" height="1006" alt="image" src="https://github.com/user-attachments/assets/20ea90f3-3ab0-4af9-a555-55bf267ac585" />
 
--   **Resume Distiller (Live):**
-    -   Ingests PDF Resumes and Job Descriptions.
-    -   Extracts semantic meaning using LLMs.
-    -   Calculates a **Relevance Score (0-100%)** using Cosine Similarity on vector embeddings.
--   **Career Roadmap Generator (In Progress):**
-    -   Generates personalized learning paths based on skill gaps.
-    -   Suggests projects and resources.
--   **LeetCode Analyzer (Planned):**
-    -   Tailors DSA preparation based on target companies.
+---
+
+## What It Does
+
+Career AI runs three specialized modules to accelerate your job search:
+
+**Resume Distiller** — Ingests PDF resumes and job descriptions. Extracts semantic
+meaning using LLMs and calculates a **Relevance Score (0–100%)** via Cosine Similarity
+on vector embeddings. Gives you a mathematically precise match signal instantly.
+
+**Career Roadmap Generator** *(In Progress)* — Analyzes skill gaps between your resume
+and the target JD. Generates a personalized learning path with project suggestions
+and curated resources to close the gap fast.
+
+**LeetCode Analyzer** *(Planned)* — Tailors DSA preparation based on your target
+companies. Tells you exactly what to grind instead of grinding everything.
 
 ---
 
 ## Tech Stack
 
--   **Framework:** FastAPI (Python) - Fully Async/Await
--   **AI/LLM:** OpenAI GPT-4 / Gemini
--   **Vector Math:** Scikit-learn (Cosine Similarity)
--   **PDF Processing:** PyPDF2 / Custom Extractors
-
----
-
-## Getting Started
-
-### Prerequisites
--   Python 3.9+
--   OpenAI/Gemini API Key
-
-### Installation
-
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/Bharathsimhareddy18/Career-AI.git
-    cd Career-AI
-    ```
-
-2.  **Create a virtual environment**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
-    ```
-
-3.  **Install dependencies**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **Set up Environment Variables**
-    Create a `.env` file and add your API keys:
-    ```env
-    OPENAI_API_KEY=your_key_here
-    ```
-
-5.  **Run the Server**
-    ```bash
-    uvicorn main:app --reload
-    ```
-
-6.  **Access the API**
-    Open your browser and navigate to the Swagger UI:
-    `http://127.0.0.1:8000/docs`
+| Layer | Technology |
+|---|---|
+| Backend | FastAPI (Fully Async/Await) |
+| AI | GPT-4 / Gemini, LLM Tool Calling |
+| Vector Math | Scikit-learn (Cosine Similarity) |
+| PDF Processing | PyPDF2 / Custom Extractors |
+| Frontend | Vercel |
 
 ---
 
 ## API Endpoints
 
-### `POST /get-relevance-score`
-Uploads a Resume (PDF) and a Job Description (PDF) to calculate how well they match.
+| Endpoint | Description |
+|---|---|
+| `POST /get-relevance-score` | Upload Resume + JD PDFs, returns match score (0–100%) |
 
+---
 
-**Response:**
-```json
-{
-  "Resume and JD relevance score is": "96",
-  "message": "Success"
-}
+## Screenshots
+
+<img width="1918" height="1006" alt="image" src="https://github.com/user-attachments/assets/20ea90f3-3ab0-4af9-a555-55bf267ac585" />
+
+<img width="1920" height="1004" alt="image" src="https://github.com/user-attachments/assets/35c138d1-2e26-4054-8c74-7f83086aefd6" />
+
+<img width="1920" height="1004" alt="image" src="https://github.com/user-attachments/assets/422be405-96c5-4299-831e-e14c39ac1b5d" />
+
